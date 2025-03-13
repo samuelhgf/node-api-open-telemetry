@@ -1,5 +1,5 @@
 const express = require('express');
-const { AWSXRay } = require('aws-xray-sdk');
+const AWSXRay = require('aws-xray-sdk');
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
 const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
 const { Resource } = require('@opentelemetry/resources');
