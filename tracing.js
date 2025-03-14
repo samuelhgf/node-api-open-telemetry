@@ -6,14 +6,36 @@ const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-expre
 const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
 const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
 const { loggerProvider } = require('./logging');
+const http = require('http');
+const https = require('https');
 
 // This function sets up OpenTelemetry with AWS and Express instrumentations
 function setupTracing() {
     try {
+
+        // Store original request methods before X-Ray patching affects them
+        const originalHttpRequest = http.request;
+        const originalHttpsRequest = https.request;
+
         const traceExporter = new OTLPTraceExporter({
             // This assumes you have an OTLP collector running either locally or in AWS
             // If you're using AWS X-Ray directly, you might need different configuration
             url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces',
+
+            httpCustomHandler: (url, options, callback) => {
+                // Temporarily restore original HTTP methods for the exporter
+                http.request = originalHttpRequest;
+                https.request = originalHttpsRequest;
+
+                // Make the request
+                const req = http.request(url, options, callback);
+
+                // Restore X-Ray patched methods
+                http.request = AWSXRay.captureHTTPs(http).request;
+                https.request = AWSXRay.captureHTTPs(https).request;
+
+                return req;
+            }
         });
 
         const sdk = new NodeSDK({
@@ -27,7 +49,15 @@ function setupTracing() {
                 // Express instrumentation
                 new ExpressInstrumentation(),
                 // HTTP calls instrumentation
-                new HttpInstrumentation(),
+                new HttpInstrumentation({
+                    ignoreOutgoingUrls: [
+                        /\/v1\/traces/,
+                        /\/v1\/logs/,
+                        /\/v1\/metrics/,
+                        /:4317/,
+                        /:4318/
+                    ]
+                }),
                 // AWS SDK instrumentation for S3 operations
                 new AwsInstrumentation({
                     // Configure AWS SDK instrumentation as needed

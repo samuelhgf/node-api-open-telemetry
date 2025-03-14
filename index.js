@@ -23,11 +23,11 @@ const xrayConfig = {
     captureHTTPsGlobal: {
         ignorePatterns: [
             // Exclude OpenTelemetry collector endpoints to prevent context missing errors
-            '/v1/traces',
-            '/v1/logs',
-            '/v1/metrics',
-            '4317', // gRPC port for OTLP
-            '4318'  // HTTP port for OTLP
+            '*/v1/traces*',
+            '*/v1/logs*',
+            '*/v1/metrics*',
+            '*:4317*',  // gRPC port for OTLP
+            '*:4318*'   // HTTP port for OTLP
         ],
         captureResponse: true
     }

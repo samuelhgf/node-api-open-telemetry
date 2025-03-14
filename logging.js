@@ -4,6 +4,9 @@ const { LoggerProvider, BatchLogRecordProcessor } = require('@opentelemetry/sdk-
 const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
 const { Resource } = require('@opentelemetry/resources');
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = require('@opentelemetry/semantic-conventions');
+const http = require('http');
+const https = require('https');
+const AWSXRay = require('aws-xray-sdk-core');
 
 // Global provider reference
 let loggerProvider = null;
@@ -22,10 +25,29 @@ function setupLogging() {
             [ATTR_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
         });
 
+        // Store original request methods
+        const originalHttpRequest = http.request;
+        const originalHttpsRequest = https.request;
+
         // Create an OTLP exporter for logs
         const logExporter = new OTLPLogExporter({
             url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs',
             headers: {}, // Add any headers if needed (e.g., authentication)
+            // Use custom HTTP handler to bypass X-Ray
+            httpCustomHandler: (url, options, callback) => {
+                // Temporarily restore original HTTP methods for the exporter
+                http.request = originalHttpRequest;
+                https.request = originalHttpsRequest;
+
+                // Make the request
+                const req = http.request(url, options, callback);
+
+                // Restore X-Ray patched methods
+                http.request = AWSXRay.captureHTTPs(http).request;
+                https.request = AWSXRay.captureHTTPs(https).request;
+
+                return req;
+            }
         });
 
         // Create a logger provider
