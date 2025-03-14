@@ -7,7 +7,7 @@ const AWSXRay = require('aws-xray-sdk');
 const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
-const { trace } = require('@opentelemetry/api');
+const { trace, context } = require('@opentelemetry/api');
 
 // Initialize Express
 const app = express();
@@ -15,6 +15,27 @@ const app = express();
 // Configure X-Ray
 AWSXRay.captureHTTPsGlobal(http);
 app.use(AWSXRay.express.openSegment('hello-world-api'));
+
+// Helper function for correlated logging
+function correlatedLog(span, level, message, additionalDetails = {}) {
+    // Get current active context and trace info
+    const spanContext = span.spanContext();
+    const traceId = spanContext.traceId;
+    const spanId = spanContext.spanId;
+
+    // Create structured log with trace correlation
+    const logEntry = {
+        level,
+        message,
+        timestamp: new Date().toISOString(),
+        'trace.id': traceId,
+        'span.id': spanId,
+        ...additionalDetails
+    };
+
+    // Log as JSON for easier parsing in CloudWatch
+    console.log(JSON.stringify(logEntry));
+}
 
 // Routes
 app.get('/', (req, res) => {
@@ -38,13 +59,32 @@ app.get('/error', async (req, res, next) => {
             span.setAttribute('error.demonstration', true);
             span.setAttribute('request.id', req.headers['x-request-id'] || 'unknown');
 
-            // Log something before the error
-            console.log('About to throw a demonstration exception');
+            // Log with correlation IDs
+            correlatedLog(span, 'INFO', 'Starting error demonstration endpoint', {
+                path: '/error',
+                method: req.method,
+                requestId: req.headers['x-request-id'] || 'unknown',
+                userAgent: req.headers['user-agent']
+            });
+
+            // Log something before the error with correlation
+            correlatedLog(span, 'WARN', 'About to throw a demonstration exception', {
+                errorType: 'DemoException',
+                operation: 'intentional-error'
+            });
 
             // Throw a custom error
             const error = new Error('This is an intentional error for monitoring demonstration');
             error.name = 'DemoException';
             error.code = 'DEMO_ERROR_CODE';
+
+            // Log the error with correlation
+            correlatedLog(span, 'ERROR', 'Demonstration exception thrown', {
+                errorName: error.name,
+                errorCode: error.code,
+                errorMessage: error.message,
+                stackTrace: error.stack
+            });
 
             // Record exception in the span and set error status
             span.setStatus({ code: trace.SpanStatusCode.ERROR });
@@ -58,6 +98,13 @@ app.get('/error', async (req, res, next) => {
         } catch (error) {
             // End the span if not ended in the try block
             if (span.isRecording()) {
+                // Log the caught error with correlation
+                correlatedLog(span, 'ERROR', 'Caught exception in error endpoint', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    stackTrace: error.stack
+                });
+
                 span.end();
             }
 
@@ -204,7 +251,28 @@ app.get('/users', async (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    // Get current active span if available
+    const activeSpan = trace.getActiveSpan();
+
+    if (activeSpan) {
+        // Log the error with trace correlation
+        correlatedLog(activeSpan, 'ERROR', 'Express error handler caught an error', {
+            errorName: err.name,
+            errorMessage: err.message,
+            stackTrace: err.stack,
+            path: req.path,
+            method: req.method
+        });
+    } else {
+        // Fallback when no active span is available
+        console.error('Error in request:', {
+            error: err.message,
+            stack: err.stack,
+            path: req.path,
+            method: req.method
+        });
+    }
+
     res.status(500).send('Something broke!');
 });
 
