@@ -1,6 +1,6 @@
-const AWSXRay = require('aws-xray-sdk');
+// const AWSXRay = require('aws-xray-sdk');
 // Set to completely ignore missing context errors
-AWSXRay.setContextMissingStrategy("LOG_ERROR");
+// AWSXRay.setContextMissingStrategy("LOG_ERROR");
 
 // Setup OpenTelemetry as early as possible
 const { setupTracing } = require('./tracing');
@@ -24,53 +24,53 @@ const app = express();
 
 // Configure X-Ray with exclusions for OTLP endpoints to prevent recursive tracing
 // This prevents X-Ray from trying to trace OpenTelemetry's own HTTP calls
-const xrayConfig = {
-    captureHTTPsGlobal: {
-        ignorePatterns: [
-            // Exclude OpenTelemetry collector endpoints to prevent context missing errors
-            '*/v1/traces*',
-            '*/v1/logs*',
-            '*/v1/metrics*',
-            '*:4317*',  // gRPC port for OTLP
-            '*:4318*'   // HTTP port for OTLP
-        ],
-        captureResponse: true
-    }
-};
+// const xrayConfig = {
+//     captureHTTPsGlobal: {
+//         ignorePatterns: [
+//             // Exclude OpenTelemetry collector endpoints to prevent context missing errors
+//             '*/v1/traces*',
+//             '*/v1/logs*',
+//             '*/v1/metrics*',
+//             '*:4317*',  // gRPC port for OTLP
+//             '*:4318*'   // HTTP port for OTLP
+//         ],
+//         captureResponse: true
+//     }
+// };
 
 // Apply the config to X-Ray
 // AWSXRay.setContextMissingStrategy('LOG_ERROR');
 // AWSXRay.setContextMissingStrategy('IGNORE_ERROR');
 
 // OPTION 1: Use inline sampling rules (default)
-const samplingRules = {
-    version: 2,
-    rules: [
-        {
-            description: "Default",
-            host: "*",
-            http_method: "*",
-            url_path: "*",
-            fixed_target: 1,
-            rate: 0.1
-        }
-    ],
-    default: {
-        fixed_target: 1,
-        rate: 0.1
-    }
-};
+// const samplingRules = {
+//     version: 2,
+//     rules: [
+//         {
+//             description: "Default",
+//             host: "*",
+//             http_method: "*",
+//             url_path: "*",
+//             fixed_target: 1,
+//             rate: 0.1
+//         }
+//     ],
+//     default: {
+//         fixed_target: 1,
+//         rate: 0.1
+//     }
+// };
 
 // Apply the inline sampling rules
-AWSXRay.middleware.setSamplingRules(samplingRules);
+// AWSXRay.middleware.setSamplingRules(samplingRules);
 
 // OPTION 2: Load sampling rules from a file (alternative approach)
 // Uncomment the following line and comment out the inline rules above if you prefer using a file
 // AWSXRay.middleware.setSamplingRules(path.join(__dirname, 'sampling-rules.json'));
 
 // Configure HTTP/HTTPS capture with our exclusions
-AWSXRay.captureHTTPsGlobal(http, xrayConfig);
-app.use(AWSXRay.express.openSegment('hello-world-api'));
+// AWSXRay.captureHTTPsGlobal(http, xrayConfig);
+// app.use(AWSXRay.express.openSegment('hello-world-api'));
 
 // Routes
 app.get('/', (req, res) => {
@@ -337,7 +337,7 @@ app.use((err, req, res, next) => {
 });
 
 // Close X-Ray segment
-app.use(AWSXRay.express.closeSegment());
+// app.use(AWSXRay.express.closeSegment());
 
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {

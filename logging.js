@@ -6,7 +6,6 @@ const { Resource } = require('@opentelemetry/resources');
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = require('@opentelemetry/semantic-conventions');
 const http = require('http');
 const https = require('https');
-const AWSXRay = require('aws-xray-sdk-core');
 
 // Global provider reference
 let loggerProvider = null;
