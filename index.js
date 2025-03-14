@@ -7,7 +7,7 @@ const AWSXRay = require('aws-xray-sdk');
 const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
-const { trace, context } = require('@opentelemetry/api');
+const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
 const { correlatedLog, setupLogging } = require('./logging');
 
 // Initialize the logging early
@@ -16,8 +16,33 @@ setupLogging();
 // Initialize Express
 const app = express();
 
-// Configure X-Ray
-AWSXRay.captureHTTPsGlobal(http);
+// Configure X-Ray with exclusions for OTLP endpoints to prevent recursive tracing
+// This prevents X-Ray from trying to trace OpenTelemetry's own HTTP calls
+const xrayConfig = {
+    captureHTTPsGlobal: {
+        ignorePatterns: [
+            // Exclude OpenTelemetry collector endpoints to prevent context missing errors
+            '/v1/traces',
+            '/v1/logs',
+            '/v1/metrics',
+            '4317', // gRPC port for OTLP
+            '4318'  // HTTP port for OTLP
+        ],
+        captureResponse: true
+    }
+};
+
+// Apply the config to X-Ray
+AWSXRay.setContextMissingStrategy('LOG_ERROR');
+AWSXRay.middleware.setSamplingRules({
+    rules: [
+        { description: "Default", fixed_target: 1, rate: 0.1 }
+    ],
+    default: { fixed_target: 1, rate: 0.1 }
+});
+
+// Configure HTTP/HTTPS capture with our exclusions
+AWSXRay.captureHTTPsGlobal(http, xrayConfig);
 app.use(AWSXRay.express.openSegment('hello-world-api'));
 
 // Routes
@@ -79,7 +104,7 @@ app.get('/error', async (req, res, next) => {
             });
 
             // Record exception in the span and set error status
-            span.setStatus({ code: trace.SpanStatusCode.ERROR });
+            span.setStatus({ code: SpanStatusCode.ERROR });
             span.recordException(error);
 
             // End the span before throwing
