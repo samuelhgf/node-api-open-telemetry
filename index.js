@@ -285,6 +285,13 @@ app.get('/users', async (req, res) => {
         // The getUsers function already has built-in tracing
         const result = await getUsers();
 
+        correlatedLog(span, 'INFO', 'Successfully fetched users from database', {
+            operation: 'get-users',
+            // Add AWS CloudWatch-specific attributes
+            'aws.log_group': '/aws/otel/hello-world-api',
+            'aws.log_stream': 'otlp-stream'
+        });
+
         if (result.success) {
             res.status(200).json(result);
         } else {
