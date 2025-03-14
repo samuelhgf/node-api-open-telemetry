@@ -33,7 +33,8 @@
         "@opentelemetry/sdk-trace-node": "^1.13.0",
         "@opentelemetry/semantic-conventions": "^1.13.0",
         "aws-xray-sdk": "^3.10.3",
-        "express": "^4.18.2"
+        "express": "^4.18.2",
+        "sqlite3": "^5.1.7"
     },
     "devDependencies": {
         "nodemon": "^3.0.3"

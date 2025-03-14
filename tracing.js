@@ -1,6 +1,6 @@
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = require('@opentelemetry/semantic-conventions');
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
 const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
 const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
@@ -17,9 +17,9 @@ function setupTracing() {
 
         const sdk = new NodeSDK({
             resource: new Resource({
-                [SemanticResourceAttributes.SERVICE_NAME]: 'node-api-s3-interaction',
-                [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
-                [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+                [ATTR_SERVICE_NAME]: 'node-api-s3-interaction',
+                [ATTR_SERVICE_VERSION]: '1.0.0',
+                [ATTR_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
             }),
             traceExporter,
             instrumentations: [
@@ -32,6 +32,7 @@ function setupTracing() {
                     // Configure AWS SDK instrumentation as needed
                     suppressInternalInstrumentation: false,
                 }),
+                // Note: SQLite operations will be manually instrumented
             ],
         });
 

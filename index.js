@@ -6,6 +6,7 @@ const express = require('express');
 const AWSXRay = require('aws-xray-sdk');
 const http = require('http');
 const { listS3Objects } = require('./s3-client');
+const { getUsers } = require('./db-client');
 const { trace } = require('@opentelemetry/api');
 
 // Initialize Express
@@ -68,6 +69,23 @@ app.get('/s3-files', async (req, res) => {
     }
 });
 
+// New endpoint to fetch users from SQLite with tracing
+app.get('/users', async (req, res) => {
+    try {
+        // The getUsers function already has built-in tracing
+        const result = await getUsers();
+
+        if (result.success) {
+            res.status(200).json(result);
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -81,4 +99,5 @@ const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`S3 files endpoint available at: http://localhost:${PORT}/s3-files`);
+    console.log(`Users endpoint available at: http://localhost:${PORT}/users`);
 });
