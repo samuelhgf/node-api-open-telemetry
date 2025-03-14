@@ -1,4 +1,4 @@
-const AWSXRay = require('aws-xray-sdk-core');
+const AWSXRay = require('aws-xray-sdk');
 // Set to completely ignore missing context errors
 AWSXRay.setContextMissingStrategy("IGNORE_ERROR");
 

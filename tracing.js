@@ -6,7 +6,7 @@ const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-expre
 const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
 const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
 const { loggerProvider } = require('./logging');
-const { http, https } = require('./otel-http');
+// const { http, https } = require('./otel-http');
 
 
 // This function sets up OpenTelemetry with AWS and Express instrumentations
@@ -14,8 +14,8 @@ function setupTracing() {
     try {
 
         // Store original request methods before X-Ray patching affects them
-        const originalHttpRequest = http.request;
-        const originalHttpsRequest = https.request;
+        // const originalHttpRequest = http.request;
+        // const originalHttpsRequest = https.request;
 
         const traceExporter = new OTLPTraceExporter({
             // This assumes you have an OTLP collector running either locally or in AWS
