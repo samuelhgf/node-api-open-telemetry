@@ -69,6 +69,80 @@ app.get('/s3-files', async (req, res) => {
     }
 });
 
+// New endpoint to fetch todos from JSONPlaceholder API with tracing
+app.get('/todos', async (req, res) => {
+    // Get tracer from OpenTelemetry API
+    const tracer = trace.getTracer('external-api-interaction');
+
+    // Create a span for the external API call
+    const result = await tracer.startActiveSpan('fetch-todos', async (span) => {
+        try {
+            // Add attributes to the span
+            span.setAttribute('http.method', 'GET');
+            span.setAttribute('http.url', 'https://jsonplaceholder.typicode.com/todos');
+            span.setAttribute('external.service', 'JSONPlaceholder');
+            span.setAttribute('external.operation', 'getTodos');
+
+            // Make the HTTP request to the external API
+            const response = await new Promise((resolve, reject) => {
+                const req = http.get('http://jsonplaceholder.typicode.com/todos', (res) => {
+                    let data = '';
+
+                    // Add response attributes to span
+                    span.setAttribute('http.status_code', res.statusCode);
+
+                    res.on('data', (chunk) => {
+                        data += chunk;
+                    });
+
+                    res.on('end', () => {
+                        try {
+                            const parsedData = JSON.parse(data);
+                            resolve({
+                                success: true,
+                                data: parsedData,
+                                count: parsedData.length
+                            });
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                });
+
+                req.on('error', (error) => {
+                    reject(error);
+                });
+            });
+
+            // Add result information to the span
+            span.setAttribute('todos.count', response.count || 0);
+            span.setAttribute('request.success', true);
+
+            return response;
+        } catch (error) {
+            // Record any exceptions
+            span.setStatus({ code: trace.SpanStatusCode.ERROR });
+            span.setAttribute('request.success', false);
+            span.recordException(error);
+
+            return {
+                success: false,
+                error: error.message
+            };
+        } finally {
+            // End the span
+            span.end();
+        }
+    });
+
+    // Send the response
+    if (result.success) {
+        res.status(200).json(result);
+    } else {
+        res.status(500).json(result);
+    }
+});
+
 // New endpoint to fetch users from SQLite with tracing
 app.get('/users', async (req, res) => {
     try {
@@ -100,4 +174,5 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`S3 files endpoint available at: http://localhost:${PORT}/s3-files`);
     console.log(`Users endpoint available at: http://localhost:${PORT}/users`);
+    console.log(`Todos endpoint available at: http://localhost:${PORT}/todos`);
 });
