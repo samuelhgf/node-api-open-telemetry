@@ -1,45 +1,54 @@
 const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
 const { Resource } = require('@opentelemetry/resources');
 const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
+const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
+const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
 
-// Configure the OTLP exporter to send telemetry to AWS Collector running on the same EC2 instance
-// AWS Collector typically runs on port 4317 for gRPC or 4318 for HTTP
-// We're using the HTTP protocol (port 4318) which is the default for the AWS OTel Collector
-const traceExporter = new OTLPTraceExporter({
-    url: 'http://localhost:4318/v1/traces', // AWS Collector default HTTP endpoint for traces
-});
+// This function sets up OpenTelemetry with AWS and Express instrumentations
+function setupTracing() {
+    try {
+        const traceExporter = new OTLPTraceExporter({
+            // This assumes you have an OTLP collector running either locally or in AWS
+            // If you're using AWS X-Ray directly, you might need different configuration
+            url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces',
+        });
 
-const metricExporter = new OTLPMetricExporter({
-    url: 'http://localhost:4318/v1/metrics', // AWS Collector default HTTP endpoint for metrics
-});
+        const sdk = new NodeSDK({
+            resource: new Resource({
+                [SemanticResourceAttributes.SERVICE_NAME]: 'node-api-s3-interaction',
+                [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
+                [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+            }),
+            traceExporter,
+            instrumentations: [
+                // Express instrumentation
+                new ExpressInstrumentation(),
+                // HTTP calls instrumentation
+                new HttpInstrumentation(),
+                // AWS SDK instrumentation for S3 operations
+                new AwsInstrumentation({
+                    // Configure AWS SDK instrumentation as needed
+                    suppressInternalInstrumentation: false,
+                }),
+            ],
+        });
 
-// Create a Resource that identifies your service
-const resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: 'node-api-service',
-    [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
-    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: 'production',
-});
+        // Initialize the SDK
+        sdk.start();
+        console.log('OpenTelemetry tracing initialized');
 
-// Create and register the SDK
-const sdk = new NodeSDK({
-    resource,
-    traceExporter,
-    metricExporter,
-    instrumentations: [getNodeAutoInstrumentations()],
-});
+        // Gracefully shut down the SDK on process exit
+        process.on('SIGTERM', () => {
+            sdk.shutdown()
+                .then(() => console.log('OpenTelemetry SDK terminated'))
+                .catch((error) => console.log('Error terminating OpenTelemetry SDK', error))
+                .finally(() => process.exit(0));
+        });
+    } catch (error) {
+        console.error('Failed to initialize OpenTelemetry:', error);
+    }
+}
 
-// Initialize the SDK and register with the OpenTelemetry API
-sdk.start();
-
-// Gracefully shut down the SDK on process exit
-process.on('SIGTERM', () => {
-    sdk.shutdown()
-        .then(() => console.log('Tracing and metrics terminated'))
-        .catch((error) => console.log('Error terminating tracing and metrics', error))
-        .finally(() => process.exit(0));
-});
-
-module.exports = sdk; 
+module.exports = { setupTracing }; 
