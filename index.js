@@ -1,18 +1,23 @@
+const AWSXRay = require('aws-xray-sdk-core');
+// Set to completely ignore missing context errors
+AWSXRay.setContextMissingStrategy("IGNORE_ERROR");
+
 // Setup OpenTelemetry as early as possible
 const { setupTracing } = require('./tracing');
 setupTracing();
 
+// Initialize the logging early
+const { correlatedLog, setupLogging } = require('./logging');
+setupLogging();
+
 const express = require('express');
-const AWSXRay = require('aws-xray-sdk');
 const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
 const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
-const { correlatedLog, setupLogging } = require('./logging');
 const path = require('path');
 
-// Initialize the logging early
-setupLogging();
+
 
 // Initialize Express
 const app = express();
@@ -34,7 +39,8 @@ const xrayConfig = {
 };
 
 // Apply the config to X-Ray
-AWSXRay.setContextMissingStrategy('LOG_ERROR');
+// AWSXRay.setContextMissingStrategy('LOG_ERROR');
+// AWSXRay.setContextMissingStrategy('IGNORE_ERROR');
 
 // OPTION 1: Use inline sampling rules (default)
 const samplingRules = {

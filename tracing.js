@@ -6,8 +6,8 @@ const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-expre
 const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
 const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
 const { loggerProvider } = require('./logging');
-const http = require('http');
-const https = require('https');
+const { http, https } = require('./otel-http');
+
 
 // This function sets up OpenTelemetry with AWS and Express instrumentations
 function setupTracing() {
@@ -22,20 +22,24 @@ function setupTracing() {
             // If you're using AWS X-Ray directly, you might need different configuration
             url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces',
 
-            httpCustomHandler: (url, options, callback) => {
-                // Temporarily restore original HTTP methods for the exporter
-                http.request = originalHttpRequest;
-                https.request = originalHttpsRequest;
+            // httpCustomHandler: (url, options, callback) => {
+            //     return originalHttpRequest(url, options, callback);
+            // }
 
-                // Make the request
-                const req = http.request(url, options, callback);
+            // httpCustomHandler: (url, options, callback) => {
+            //     // Temporarily restore original HTTP methods for the exporter
+            //     http.request = originalHttpRequest;
+            //     https.request = originalHttpsRequest;
 
-                // Restore X-Ray patched methods
-                http.request = AWSXRay.captureHTTPs(http).request;
-                https.request = AWSXRay.captureHTTPs(https).request;
+            //     // Make the request
+            //     const req = http.request(url, options, callback);
 
-                return req;
-            }
+            //     // Restore X-Ray patched methods
+            //     http.request = AWSXRay.captureHTTPs(http).request;
+            //     https.request = AWSXRay.captureHTTPs(https).request;
+
+            //     return req;
+            // }
         });
 
         const sdk = new NodeSDK({

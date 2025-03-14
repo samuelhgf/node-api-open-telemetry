@@ -34,20 +34,20 @@ function setupLogging() {
             url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs',
             headers: {}, // Add any headers if needed (e.g., authentication)
             // Use custom HTTP handler to bypass X-Ray
-            httpCustomHandler: (url, options, callback) => {
-                // Temporarily restore original HTTP methods for the exporter
-                http.request = originalHttpRequest;
-                https.request = originalHttpsRequest;
+            // httpCustomHandler: (url, options, callback) => {
+            //     // Temporarily restore original HTTP methods for the exporter
+            //     http.request = originalHttpRequest;
+            //     https.request = originalHttpsRequest;
 
-                // Make the request
-                const req = http.request(url, options, callback);
+            //     // Make the request
+            //     const req = http.request(url, options, callback);
 
-                // Restore X-Ray patched methods
-                http.request = AWSXRay.captureHTTPs(http).request;
-                https.request = AWSXRay.captureHTTPs(https).request;
+            //     // Restore X-Ray patched methods
+            //     http.request = AWSXRay.captureHTTPs(http).request;
+            //     https.request = AWSXRay.captureHTTPs(https).request;
 
-                return req;
-            }
+            //     return req;
+            // }
         });
 
         // Create a logger provider
