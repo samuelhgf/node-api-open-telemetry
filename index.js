@@ -9,6 +9,7 @@ const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
 const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
 const { correlatedLog, setupLogging } = require('./logging');
+const path = require('path');
 
 // Initialize the logging early
 setupLogging();
@@ -34,12 +35,32 @@ const xrayConfig = {
 
 // Apply the config to X-Ray
 AWSXRay.setContextMissingStrategy('LOG_ERROR');
-AWSXRay.middleware.setSamplingRules({
+
+// OPTION 1: Use inline sampling rules (default)
+const samplingRules = {
+    version: 2,
     rules: [
-        { description: "Default", fixed_target: 1, rate: 0.1 }
+        {
+            description: "Default",
+            host: "*",
+            http_method: "*",
+            url_path: "*",
+            fixed_target: 1,
+            rate: 0.1
+        }
     ],
-    default: { fixed_target: 1, rate: 0.1 }
-});
+    default: {
+        fixed_target: 1,
+        rate: 0.1
+    }
+};
+
+// Apply the inline sampling rules
+AWSXRay.middleware.setSamplingRules(samplingRules);
+
+// OPTION 2: Load sampling rules from a file (alternative approach)
+// Uncomment the following line and comment out the inline rules above if you prefer using a file
+// AWSXRay.middleware.setSamplingRules(path.join(__dirname, 'sampling-rules.json'));
 
 // Configure HTTP/HTTPS capture with our exclusions
 AWSXRay.captureHTTPsGlobal(http, xrayConfig);
