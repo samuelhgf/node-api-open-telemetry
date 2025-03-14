@@ -1,7 +1,6 @@
 const AWSXRay = require('aws-xray-sdk');
 // Set to completely ignore missing context errors
-AWSXRay.setContextMissingStrategy("IGNORE_ERROR");
-AWSXRay.setDaemonAddress('dummy:2000');
+AWSXRay.setContextMissingStrategy("LOG_ERROR");
 
 // Setup OpenTelemetry as early as possible
 const { setupTracing } = require('./tracing');
