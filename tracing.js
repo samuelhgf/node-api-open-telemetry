@@ -5,6 +5,7 @@ const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http')
 const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
 const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
 const { AwsInstrumentation } = require('@opentelemetry/instrumentation-aws-sdk');
+const { loggerProvider } = require('./logging');
 
 // This function sets up OpenTelemetry with AWS and Express instrumentations
 function setupTracing() {
@@ -39,6 +40,11 @@ function setupTracing() {
         // Initialize the SDK
         sdk.start();
         console.log('OpenTelemetry tracing initialized');
+
+        // Ensure the logger provider is also initialized
+        if (loggerProvider) {
+            console.log('OpenTelemetry logging provider is active');
+        }
 
         // Gracefully shut down the SDK on process exit
         process.on('SIGTERM', () => {

@@ -8,6 +8,10 @@ const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
 const { trace, context } = require('@opentelemetry/api');
+const { correlatedLog, setupLogging } = require('./logging');
+
+// Initialize the logging early
+setupLogging();
 
 // Initialize Express
 const app = express();
@@ -15,27 +19,6 @@ const app = express();
 // Configure X-Ray
 AWSXRay.captureHTTPsGlobal(http);
 app.use(AWSXRay.express.openSegment('hello-world-api'));
-
-// Helper function for correlated logging
-function correlatedLog(span, level, message, additionalDetails = {}) {
-    // Get current active context and trace info
-    const spanContext = span.spanContext();
-    const traceId = spanContext.traceId;
-    const spanId = spanContext.spanId;
-
-    // Create structured log with trace correlation
-    const logEntry = {
-        level,
-        message,
-        timestamp: new Date().toISOString(),
-        'trace.id': traceId,
-        'span.id': spanId,
-        ...additionalDetails
-    };
-
-    // Log as JSON for easier parsing in CloudWatch
-    console.log(JSON.stringify(logEntry));
-}
 
 // Routes
 app.get('/', (req, res) => {
@@ -59,18 +42,24 @@ app.get('/error', async (req, res, next) => {
             span.setAttribute('error.demonstration', true);
             span.setAttribute('request.id', req.headers['x-request-id'] || 'unknown');
 
-            // Log with correlation IDs
+            // Log with correlation IDs using OTLP
             correlatedLog(span, 'INFO', 'Starting error demonstration endpoint', {
                 path: '/error',
                 method: req.method,
                 requestId: req.headers['x-request-id'] || 'unknown',
-                userAgent: req.headers['user-agent']
+                userAgent: req.headers['user-agent'],
+                // Add AWS CloudWatch-specific attributes for correlation
+                'aws.log_group': '/aws/otel/hello-world-api',
+                'aws.log_stream': 'otlp-stream'
             });
 
             // Log something before the error with correlation
             correlatedLog(span, 'WARN', 'About to throw a demonstration exception', {
                 errorType: 'DemoException',
-                operation: 'intentional-error'
+                operation: 'intentional-error',
+                // Add AWS CloudWatch-specific attributes
+                'aws.log_group': '/aws/otel/hello-world-api',
+                'aws.log_stream': 'otlp-stream'
             });
 
             // Throw a custom error
@@ -83,7 +72,10 @@ app.get('/error', async (req, res, next) => {
                 errorName: error.name,
                 errorCode: error.code,
                 errorMessage: error.message,
-                stackTrace: error.stack
+                stackTrace: error.stack,
+                // Add AWS CloudWatch-specific attributes
+                'aws.log_group': '/aws/otel/hello-world-api',
+                'aws.log_stream': 'otlp-stream'
             });
 
             // Record exception in the span and set error status
@@ -102,7 +94,10 @@ app.get('/error', async (req, res, next) => {
                 correlatedLog(span, 'ERROR', 'Caught exception in error endpoint', {
                     errorName: error.name,
                     errorMessage: error.message,
-                    stackTrace: error.stack
+                    stackTrace: error.stack,
+                    // Add AWS CloudWatch-specific attributes
+                    'aws.log_group': '/aws/otel/hello-world-api',
+                    'aws.log_stream': 'otlp-stream'
                 });
 
                 span.end();
@@ -261,7 +256,10 @@ app.use((err, req, res, next) => {
             errorMessage: err.message,
             stackTrace: err.stack,
             path: req.path,
-            method: req.method
+            method: req.method,
+            // Add AWS CloudWatch-specific attributes
+            'aws.log_group': '/aws/otel/hello-world-api',
+            'aws.log_stream': 'otlp-stream'
         });
     } else {
         // Fallback when no active span is available
