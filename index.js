@@ -25,6 +25,48 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK' });
 });
 
+// New endpoint that intentionally throws an exception for monitoring
+app.get('/error', async (req, res, next) => {
+    // Get tracer from OpenTelemetry API
+    const tracer = trace.getTracer('error-demonstration');
+
+    // Create a span for the error demonstration
+    tracer.startActiveSpan('intentional-error', async (span) => {
+        try {
+            // Add attributes to the span
+            span.setAttribute('error.type', 'DemoException');
+            span.setAttribute('error.demonstration', true);
+            span.setAttribute('request.id', req.headers['x-request-id'] || 'unknown');
+
+            // Log something before the error
+            console.log('About to throw a demonstration exception');
+
+            // Throw a custom error
+            const error = new Error('This is an intentional error for monitoring demonstration');
+            error.name = 'DemoException';
+            error.code = 'DEMO_ERROR_CODE';
+
+            // Record exception in the span and set error status
+            span.setStatus({ code: trace.SpanStatusCode.ERROR });
+            span.recordException(error);
+
+            // End the span before throwing
+            span.end();
+
+            // Throw the error to be caught by Express error handler
+            throw error;
+        } catch (error) {
+            // End the span if not ended in the try block
+            if (span.isRecording()) {
+                span.end();
+            }
+
+            // Pass the error to the Express error handler
+            next(error);
+        }
+    });
+});
+
 // New endpoint to interact with S3 and create an OTEL trace
 app.get('/s3-files', async (req, res) => {
     // Get tracer from OpenTelemetry API
