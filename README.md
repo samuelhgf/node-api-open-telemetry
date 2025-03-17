@@ -1,76 +1,58 @@
-# Node.js API with OpenTelemetry and AWS S3 Tracing
+# Node.js API with OpenTelemetry Integration
 
-This is a simple Express API that demonstrates distributed tracing between an EC2-hosted API and an S3 bucket using OpenTelemetry.
+This project demonstrates a Node.js API with comprehensive observability using OpenTelemetry. The application provides various endpoints to demonstrate different aspects of distributed tracing, logging, and metrics collection.
 
 ## Features
 
-- Express.js API running on port 3003
-- AWS X-Ray integration for general request tracing
-- OpenTelemetry integration for detailed distributed tracing
-- S3 interactions traced with OpenTelemetry
-- Connection to `poc-ai-files` S3 bucket
+- RESTful API endpoints demonstrating different observability scenarios
+- External API integration with JSONPlaceholder
+- OpenTelemetry instrumentation for:
+  - Distributed tracing
+  - Metrics collection
+  - Logging
+- Automatic instrumentation for:
+  - Express.js
+  - HTTP requests
+  - External API calls
 
-## Endpoints
+## API Endpoints
 
-- `GET /` - Simple hello world endpoint
-- `GET /health` - Health check endpoint
-- `GET /s3-files` - Lists files from the `poc-ai-files` S3 bucket and traces the operation
+### Hello World Endpoint
+- `GET /`: Returns "Hello World!" with traced metrics and attributes
+  - Records metrics for request count
+  - Adds HTTP method and route attributes to span
+  - Demonstrates basic tracing setup
 
-## OpenTelemetry Integration
+### Health Check
+- `GET /health`: Simple health check endpoint
+  - Returns `{ status: 'OK' }`
+  - Used for monitoring application health
 
-The application uses OpenTelemetry to create distributed traces between the API and S3 operations. The tracing includes:
+### Error Demonstration
+- `GET /error`: Demonstrates error handling and logging
+  - Intentionally throws an exception
+  - Logs error details with correlation IDs
+  - Records error in span attributes
+  - Demonstrates error tracing and logging
 
-- Express.js instrumentation for HTTP requests
-- AWS SDK instrumentation for S3 operations
-- Custom spans with detailed attributes for S3 interactions
+### External API Integration
+- `GET /todos`: Fetches todos from JSONPlaceholder API
+  - Demonstrates external API tracing
+  - Records HTTP request/response details
+  - Adds external service attributes
+  - Returns todos data or error details
 
-## Requirements
+## Observability
 
-- Node.js v14+
-- AWS credentials with S3 access permissions
-- OpenTelemetry collector (for sending traces)
+### Distributed Tracing
 
-## Environment Variables
+[Screenshot placeholder for distributed traces showing request flow across services]
 
-The following environment variables can be configured:
+### Logging
 
-- `PORT` - Port to run the server on (default: 3003)
-- `AWS_REGION` - AWS region for the S3 bucket (default: 'us-east-1')
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - Endpoint for the OpenTelemetry collector (default: 'http://localhost:4318/v1/traces')
+[Screenshot placeholder for structured logging with trace IDs]
 
-## Running the Application
+### Metrics
 
-1. Install dependencies:
-   ```
-   npm install
-   ```
+[Screenshot placeholder for OpenTelemetry metrics dashboard]
 
-2. Run the application:
-   ```
-   npm start
-   ```
-
-3. Access the S3 file listing endpoint:
-   ```
-   curl http://localhost:3003/s3-files
-   ```
-
-## Viewing Traces
-
-Traces will be exported to the configured OpenTelemetry collector, which can forward them to various backends including:
-
-- AWS X-Ray
-- Jaeger
-- Zipkin
-- Cloud observability platforms
-
-## AWS Credentials
-
-The application uses the AWS SDK's default credential provider chain, which will look for credentials in the following order:
-
-1. Environment variables
-2. Shared credentials file
-3. ECS container credentials
-4. EC2 instance profile credentials
-
-When deployed on EC2, make sure the instance has an IAM role with permission to access the S3 bucket. 
