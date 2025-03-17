@@ -1,7 +1,3 @@
-// const AWSXRay = require('aws-xray-sdk');
-// Set to completely ignore missing context errors
-// AWSXRay.setContextMissingStrategy("LOG_ERROR");
-
 // Setup OpenTelemetry as early as possible
 const { setupTracing } = require('./tracing');
 setupTracing();
@@ -15,66 +11,43 @@ const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
 const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
-const path = require('path');
 
 
 
 // Initialize Express
 const app = express();
 
-// Configure X-Ray with exclusions for OTLP endpoints to prevent recursive tracing
-// This prevents X-Ray from trying to trace OpenTelemetry's own HTTP calls
-// const xrayConfig = {
-//     captureHTTPsGlobal: {
-//         ignorePatterns: [
-//             // Exclude OpenTelemetry collector endpoints to prevent context missing errors
-//             '*/v1/traces*',
-//             '*/v1/logs*',
-//             '*/v1/metrics*',
-//             '*:4317*',  // gRPC port for OTLP
-//             '*:4318*'   // HTTP port for OTLP
-//         ],
-//         captureResponse: true
-//     }
-// };
-
-// Apply the config to X-Ray
-// AWSXRay.setContextMissingStrategy('LOG_ERROR');
-// AWSXRay.setContextMissingStrategy('IGNORE_ERROR');
-
-// OPTION 1: Use inline sampling rules (default)
-// const samplingRules = {
-//     version: 2,
-//     rules: [
-//         {
-//             description: "Default",
-//             host: "*",
-//             http_method: "*",
-//             url_path: "*",
-//             fixed_target: 1,
-//             rate: 0.1
-//         }
-//     ],
-//     default: {
-//         fixed_target: 1,
-//         rate: 0.1
-//     }
-// };
-
-// Apply the inline sampling rules
-// AWSXRay.middleware.setSamplingRules(samplingRules);
-
-// OPTION 2: Load sampling rules from a file (alternative approach)
-// Uncomment the following line and comment out the inline rules above if you prefer using a file
-// AWSXRay.middleware.setSamplingRules(path.join(__dirname, 'sampling-rules.json'));
-
-// Configure HTTP/HTTPS capture with our exclusions
-// AWSXRay.captureHTTPsGlobal(http, xrayConfig);
-// app.use(AWSXRay.express.openSegment('hello-world-api'));
-
 // Routes
 app.get('/', (req, res) => {
-    res.send('Hello World!');
+    // Get tracer from OpenTelemetry API
+    const tracer = trace.getTracer('hello-world-api');
+
+    // Create a span for this endpoint
+    tracer.startActiveSpan('hello-world-endpoint', span => {
+        try {
+            // Record a metric for this endpoint call
+            const meter = require('@opentelemetry/api').metrics.getMeter('hello-world-metrics');
+            const counter = meter.createCounter('hello_world_requests', {
+                description: 'Counts requests to the hello world endpoint'
+            });
+            counter.add(1, { endpoint: '/', method: req.method });
+
+            // Add attributes to the span
+            span.setAttribute('http.method', req.method);
+            span.setAttribute('http.route', '/');
+
+            res.send('Hello World!');
+            span.setStatus({ code: SpanStatusCode.OK });
+        } catch (error) {
+            span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: error.message
+            });
+            span.recordException(error);
+        } finally {
+            span.end();
+        }
+    });
 });
 
 app.get('/health', (req, res) => {
@@ -335,9 +308,6 @@ app.use((err, req, res, next) => {
 
     res.status(500).send('Something broke!');
 });
-
-// Close X-Ray segment
-// app.use(AWSXRay.express.closeSegment());
 
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
