@@ -6,16 +6,41 @@ setupTracing();
 const { correlatedLog, setupLogging } = require('./logging');
 setupLogging();
 
+// Initialize metrics
+const { meterProvider, requestCounter, responseTimeHistogram } = require('./metrics');
+
 const express = require('express');
 const http = require('http');
 const { listS3Objects } = require('./s3-client');
 const { getUsers } = require('./db-client');
 const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
 
-
-
 // Initialize Express
 const app = express();
+
+// Middleware to track request metrics
+app.use((req, res, next) => {
+    const startTime = Date.now();
+
+    // Record request count
+    requestCounter.add(1, {
+        method: req.method,
+        route: req.path,
+        status: res.statusCode
+    });
+
+    // Record response time when the response is finished
+    res.on('finish', () => {
+        const duration = (Date.now() - startTime) / 1000; // Convert to seconds
+        responseTimeHistogram.record(duration, {
+            method: req.method,
+            route: req.path,
+            status: res.statusCode
+        });
+    });
+
+    next();
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -25,13 +50,6 @@ app.get('/', (req, res) => {
     // Create a span for this endpoint
     tracer.startActiveSpan('hello-world-endpoint', span => {
         try {
-            // Record a metric for this endpoint call
-            const meter = require('@opentelemetry/api').metrics.getMeter('hello-world-metrics');
-            const counter = meter.createCounter('hello_world_requests', {
-                description: 'Counts requests to the hello world endpoint'
-            });
-            counter.add(1, { endpoint: '/', method: req.method });
-
             // Add attributes to the span
             span.setAttribute('http.method', req.method);
             span.setAttribute('http.route', '/');
