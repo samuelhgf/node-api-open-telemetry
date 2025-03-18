@@ -45,12 +45,13 @@ This project demonstrates a Node.js API with comprehensive observability using O
 ## Observability
 
 ### Distributed Tracing
+<img width="1677" alt="Screenshot 2025-03-17 at 20 57 30" src="https://github.com/user-attachments/assets/e9e43b63-eb29-437f-b1bd-80fba6e08ab4" />
+<img width="1680" alt="Screenshot 2025-03-17 at 20 57 47" src="https://github.com/user-attachments/assets/ee5765f3-b036-4aa4-89b7-b8239b039cc4" />
 
-[Screenshot placeholder for distributed traces showing request flow across services]
 
 ### Logging
+<img width="1674" alt="Screenshot 2025-03-17 at 20 58 05" src="https://github.com/user-attachments/assets/58892e47-77d2-4cb2-8a87-e5c4c50ee395" />
 
-[Screenshot placeholder for structured logging with trace IDs]
 
 ### Metrics
 
