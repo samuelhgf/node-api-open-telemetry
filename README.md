@@ -54,6 +54,6 @@ This project demonstrates a Node.js API with comprehensive observability using O
 
 
 ### Metrics
+<img width="1673" alt="Screenshot 2025-03-17 at 21 22 20" src="https://github.com/user-attachments/assets/ceebd492-8c80-44d6-9d61-0a36c4d05f89" />
 
-[Screenshot placeholder for OpenTelemetry metrics dashboard]
 
